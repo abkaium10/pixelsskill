@@ -1,0 +1,475 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ChatStatus {
+  OPEN
+  CLOSED
+}
+
+enum ChatSender {
+  VISITOR
+  ADMIN
+  SYSTEM
+}
+
+enum EditStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
+  CANCELLED
+}
+
+enum RequestStatus {
+  PENDING
+  REVIEWING
+  QUOTED
+  APPROVED
+  COMPLETED
+  CANCELLED
+}
+
+model Admin {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime       @default(now())
+  sessions     AdminSession[]
+}
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@index([expiresAt])
+}
+
+model Media {
+  id           String   @id @default(cuid())
+  publicId     String   @unique
+  url          String
+  secureUrl    String
+  resourceType String   @default("image")
+  format       String?
+  width        Int?
+  height       Int?
+  bytes        Int?
+  originalName String?
+  folder       String?
+  alt          String?
+  isSample     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  serviceHeroBefore Service[]     @relation("HeroBefore")
+  serviceHeroAfter  Service[]     @relation("HeroAfter")
+  serviceOg         Service[]     @relation("ServiceOg")
+  cardBefore        ServiceCard[] @relation("CardBefore")
+  cardAfter         ServiceCard[] @relation("CardAfter")
+
+  @@index([resourceType, createdAt])
+}
+
+model Service {
+  id               String        @id @default(cuid())
+  name             String
+  slug             String        @unique
+  shortDescription String        @default("")
+  status           PublishStatus @default(DRAFT)
+  displayOrder     Int           @default(0)
+  featured         Boolean       @default(false)
+  showInListing    Boolean       @default(true)
+
+  heroHeading     String  @default("")
+  heroDescription String  @default("")
+  heroBeforeId    String?
+  heroBefore      Media?  @relation("HeroBefore", fields: [heroBeforeId], references: [id], onDelete: SetNull)
+  heroAfterId     String?
+  heroAfter       Media?  @relation("HeroAfter", fields: [heroAfterId], references: [id], onDelete: SetNull)
+  beforeAlt       String  @default("")
+  afterAlt        String  @default("")
+  sliderPosition  Int     @default(50)
+
+  introduction   String   @default("")
+  features       Json     @default("[]")
+  benefits       Json     @default("[]")
+  workflow       Json     @default("[]")
+  useCases       Json     @default("[]")
+  outputFormats  String[] @default([])
+  faqs           Json     @default("[]")
+  relatedSlugs   String[] @default([])
+  hiddenSections String[] @default([])
+
+  seoTitle           String  @default("")
+  metaDescription    String  @default("")
+  canonicalUrl       String  @default("")
+  focusKeyword       String  @default("")
+  additionalKeywords String  @default("")
+  noindex            Boolean @default(false)
+  ogImageId          String?
+  ogImage            Media?  @relation("ServiceOg", fields: [ogImageId], references: [id], onDelete: SetNull)
+
+  ogTitle       String  @default("")
+  ogDescription String  @default("")
+  ogImageAlt    String  @default("")
+  nofollow      Boolean @default(false)
+
+  cards          ServiceCard[]
+  pricingCards   PricingCard[]
+  portfolioItems PortfolioItem[]
+
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, displayOrder])
+}
+
+model ServiceCard {
+  id           String  @id @default(cuid())
+  serviceId    String
+  service      Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  title        String
+  description  String  @default("")
+  beforeId     String?
+  before       Media?  @relation("CardBefore", fields: [beforeId], references: [id], onDelete: SetNull)
+  afterId      String?
+  after        Media?  @relation("CardAfter", fields: [afterId], references: [id], onDelete: SetNull)
+  displayOrder Int     @default(0)
+
+  @@index([serviceId, displayOrder])
+}
+
+model Redirect {
+  id        String   @id @default(cuid())
+  source    String   @unique
+  target    String
+  permanent Boolean  @default(true)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Quote {
+  id                String         @id @default(cuid())
+  name              String
+  email             String
+  company           String?
+  phone             String?
+  serviceSlug       String?
+  quantity          Int?
+  complexity        String?
+  outputFormat      String?
+  deadline          DateTime?
+  instructions      String?
+  files             Json           @default("[]")
+  fileLinks         Json           @default("[]")
+  status            RequestStatus  @default(PENDING)
+  internalNotes     String?
+  proposedPrice     Decimal?       @db.Decimal(10, 2)
+  proposedTurnaround String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model FreeTrial {
+  id           String        @id @default(cuid())
+  name         String
+  email        String
+  company      String?
+  phone        String?
+  serviceSlug  String?
+  imageCount   Int
+  outputFormat String
+  instructions String?
+  files        Json          @default("[]")
+  fileLinks    Json          @default("[]")
+  deliverables Json          @default("[]")
+  status       RequestStatus @default(PENDING)
+  internalNotes String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model PricingCard {
+  id                String        @id @default(cuid())
+  title             String
+  subtitle          String        @default("")
+  description       String        @default("")
+  badge             String        @default("")
+  serviceId         String?
+  service            Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  currency          String        @default("USD")
+  startingPrice     Decimal       @db.Decimal(10, 2)
+  priceUnit         String        @default("per image")
+  beforeId          String?
+  afterId           String?
+  beforeAlt         String        @default("")
+  afterAlt          String        @default("")
+  sliderPosition    Int           @default(50)
+  showSlider        Boolean       @default(true)
+  showOptions       Boolean       @default(true)
+  showStartingPrice Boolean       @default(true)
+  ctaLabel          String        @default("Get a Quote")
+  ctaUrl            String        @default("/quote")
+  featured          Boolean       @default(false)
+  displayOrder      Int           @default(0)
+  status            PublishStatus @default(DRAFT)
+  options           PricingOption[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([status, displayOrder])
+}
+
+model PricingOption {
+  id          String     @id @default(cuid())
+  cardId      String
+  card        PricingCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  title       String
+  description String     @default("")
+  price       Decimal    @db.Decimal(10, 2)
+  priceUnit   String     @default("per image")
+  badge       String     @default("")
+  visible     Boolean    @default(true)
+  displayOrder Int       @default(0)
+
+  @@index([cardId, displayOrder])
+}
+
+model PortfolioItem {
+  id              String        @id @default(cuid())
+  title           String
+  slug            String        @unique
+  description     String        @default("")
+  body            String        @default("")
+  category        String        @default("")
+  tags            String[]      @default([])
+  serviceId       String?
+  service         Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  beforeId        String?
+  afterId         String?
+  beforeAlt       String        @default("")
+  afterAlt        String        @default("")
+  sliderPosition  Int           @default(50)
+  thumbnailId     String?
+  featured        Boolean       @default(false)
+  displayOrder    Int           @default(0)
+  status          PublishStatus @default(DRAFT)
+  seoTitle        String        @default("")
+  metaDescription String        @default("")
+  canonicalUrl    String        @default("")
+  noindex         Boolean       @default(false)
+  ogImageId       String?
+  ogTitle         String        @default("")
+  ogDescription   String        @default("")
+  ogImageAlt      String        @default("")
+  nofollow        Boolean       @default(false)
+  examples        PortfolioExample[]
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status, displayOrder])
+  @@index([category])
+}
+
+model PortfolioExample {
+  id           String        @id @default(cuid())
+  itemId       String
+  item         PortfolioItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  beforeId     String?
+  afterId      String?
+  beforeAlt    String        @default("")
+  afterAlt     String        @default("")
+  caption      String        @default("")
+  displayOrder Int           @default(0)
+
+  @@index([itemId, displayOrder])
+}
+
+model Testimonial {
+  id          String        @id @default(cuid())
+  name        String
+  role        String        @default("")
+  company     String        @default("")
+  text        String
+  avatarId    String?
+  avatarAlt   String        @default("")
+  rating      Int?
+  isSample    Boolean       @default(false)
+  serviceName String        @default("")
+  featured    Boolean       @default(false)
+  displayOrder Int          @default(0)
+  status      PublishStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Faq {
+  id           String        @id @default(cuid())
+  question     String
+  answer       String
+  category     String        @default("General")
+  serviceId    String?
+  displayOrder Int           @default(0)
+  status       PublishStatus @default(DRAFT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([status, displayOrder])
+}
+
+model Offer {
+  id           String        @id @default(cuid())
+  title        String
+  slug         String        @unique
+  badge        String        @default("")
+  description  String        @default("")
+  bannerId     String?
+  bannerAlt    String        @default("")
+  startsAt     DateTime?
+  endsAt       DateTime?
+  ctaLabel     String        @default("Claim this offer")
+  ctaUrl       String        @default("/quote")
+  serviceId    String?
+  featured     Boolean       @default(false)
+  displayOrder Int           @default(0)
+  status       PublishStatus @default(DRAFT)
+  seoTitle     String        @default("")
+  metaDescription String     @default("")
+  canonicalUrl String        @default("")
+  noindex      Boolean       @default(false)
+  ogImageId    String?
+  ogTitle      String        @default("")
+  ogDescription String       @default("")
+  ogImageAlt   String        @default("")
+  nofollow     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([status, displayOrder])
+}
+
+model BlogPost {
+  id              String        @id @default(cuid())
+  title           String
+  slug            String        @unique
+  excerpt         String        @default("")
+  content         String        @default("")
+  coverId         String?
+  coverAlt        String        @default("")
+  authorName      String        @default("")
+  category        String        @default("")
+  tags            String[]      @default([])
+  serviceId       String?
+  featured        Boolean       @default(false)
+  status          PublishStatus @default(DRAFT)
+  publishedAt     DateTime?
+  seoTitle        String        @default("")
+  metaDescription String        @default("")
+  canonicalUrl    String        @default("")
+  noindex         Boolean       @default(false)
+  ogImageId       String?
+  ogTitle         String        @default("")
+  ogDescription   String        @default("")
+  ogImageAlt      String        @default("")
+  nofollow        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([category])
+}
+
+model Subscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  consent   Boolean  @default(true)
+  consentAt DateTime @default(now())
+  source    String   @default("footer")
+  createdAt DateTime @default(now())
+}
+
+model ChatSession {
+  id            String       @id @default(cuid())
+  tokenHash     String       @unique
+  visitorName   String?
+  visitorEmail  String?
+  page          String?
+  status        ChatStatus   @default(OPEN)
+  unreadAdmin   Int          @default(0)
+  unreadVisitor Int          @default(0)
+  lastMessageAt DateTime     @default(now())
+  createdAt     DateTime     @default(now())
+  messages      ChatMessage[]
+
+  @@index([status, lastMessageAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender    ChatSender
+  body      String
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
+model EditJob {
+  id            String     @id @default(cuid())
+  tokenHash     String     @unique
+  serviceSlug   String
+  provider      String
+  status        EditStatus @default(QUEUED)
+  email         String?
+  inputs        Json       @default("[]")
+  options       Json       @default("{}")
+  outputs       Json       @default("[]")
+  externalId    String?
+  error         String?
+  internalNotes String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([status, createdAt])
+}

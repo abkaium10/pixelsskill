@@ -1,0 +1,13 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+:root { --cream:#EEF3E8; --sage:#BAC095; --lavender:#8686AC; --mist:#CBCBCB; --navy:#07121C; --teal:#005C73; --cyan:#22D3EE; --sun:#FFC107; }
+html { scroll-behavior: smooth; scroll-padding-top: 6.5rem; }
+body { background: var(--cream); color: #12202b; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* scroll reveal (progressive enhancement; class added by JS only) */
+.rv{opacity:0;transform:translateY(18px);transition:opacity .5s,transform .5s}.rv-in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}}
+/* skip rendering of off-screen sections until needed (big win on long pages) */
+.cv{content-visibility:auto;contain-intrinsic-size:auto 640px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@keyframes mq{to{transform:translateX(-50%)}}.mq-t{animation:mq 40s linear infinite}@media(prefers-reduced-motion:reduce){.mq-t{animation:none}}
